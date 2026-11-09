@@ -79,6 +79,20 @@ input, select {
 }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; font-weight: 600; }
 label.block { margin-top: .9rem; }
+textarea {
+  font: inherit; width: 100%; padding: .55rem .65rem; border-radius: 10px; resize: vertical;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .3rem .8rem; }
+label.check { flex-direction: row; align-items: flex-start; gap: .55rem; font-weight: 400; padding: .35rem 0; cursor: pointer; }
+label.check input { width: auto; margin-top: .25rem; flex-shrink: 0; accent-color: var(--accent); }
+label.check small { display: block; font-size: .82rem; }
+label.check.strong { font-weight: 600; margin-top: .6rem; border-top: 1px solid var(--border); padding-top: .8rem; }
+.health-box { background: var(--surface-2); border-radius: 12px; padding: .7rem 1rem; margin-top: .6rem; font-size: .9rem; }
+.health-box h4 { margin: 0 0 .3rem; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.health-box ul { margin: 0; padding-left: 1.1rem; }
+.health-box li { margin-bottom: .3rem; }
+.vet { white-space: pre-wrap; margin: 0 0 .4rem; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem; box-shadow: var(--shadow); margin-bottom: 1rem; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .8rem; }

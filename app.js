@@ -18,6 +18,7 @@
     return {
       id: uid(), name, age: 12, breed: 'other', clip: 'none', condition: 'ideal', temperament: 'normal',
       shelter: 'natural', location: null, periods: structuredClone(PRESETS.outDay), rugs: [],
+      health: [], precise: false, vetNotes: '',
     };
   }
 
@@ -47,6 +48,8 @@
   fillSelect($('#horseForm [name=temperament]'), E.TEMPERAMENT);
   fillSelect($('#horseForm [name=shelter]'), E.SHELTER);
   fillSelect($('#rugForm [name=type]'), E.RUG_TYPES);
+  $('#healthList').innerHTML = Object.entries(E.HEALTH).map(([k, v]) =>
+    `<label class="check"><input type="checkbox" name="health" value="${k}" id="health-${k}"><span>${esc(v.label)}</span></label>`).join('');
 
   // ---------- tabs ----------
   function showTab(name) {
@@ -79,6 +82,11 @@
   function renderHorseForm() {
     const h = horse(), f = $('#horseForm');
     ['name', 'age', 'breed', 'clip', 'condition', 'temperament', 'shelter'].forEach(k => { f[k].value = h[k] ?? ''; });
+    const health = h.health || [];
+    $$('#healthList input').forEach(i => { i.checked = health.includes(i.value); });
+    f.precise.checked = !!h.precise;
+    f.vetNotes.value = h.vetNotes || '';
+    syncPrecise();
     draftPeriods = structuredClone(h.periods);
     draftLocation = h.location;
     renderPeriods();
@@ -86,6 +94,17 @@
     $('#locResults').innerHTML = '';
     $('#deleteHorse').hidden = state.horses.length < 2;
   }
+
+  // Some conditions always mean "keep closely matched"; show that by ticking and locking the box.
+  let preciseByChoice = false;
+  function syncPrecise() {
+    const box = $('#horseForm [name=precise]');
+    const implied = $$('#healthList input:checked').some(i => E.HEALTH[i.value] && E.HEALTH[i.value].precise);
+    if (!box.disabled) preciseByChoice = box.checked;
+    box.disabled = implied;
+    box.checked = implied || preciseByChoice;
+  }
+  $('#healthList').addEventListener('change', syncPrecise);
 
   function renderLocation() {
     $('#locCurrent').innerHTML = draftLocation
@@ -170,6 +189,9 @@
     h.name = f.name.value.trim() || 'My horse';
     h.age = f.age.value === '' ? null : Number(f.age.value);
     ['breed', 'clip', 'condition', 'temperament', 'shelter'].forEach(k => { h[k] = f[k].value; });
+    h.health = $$('#healthList input:checked').map(i => i.value);
+    h.precise = f.precise.disabled ? preciseByChoice : f.precise.checked;
+    h.vetNotes = f.vetNotes.value.trim();
     h.periods = draftPeriods.filter(p => p.from && p.to);
     if (!h.periods.length) h.periods = structuredClone(PRESETS.outDay);
     h.location = draftLocation;
@@ -319,6 +341,14 @@
   function fmtTime(t) { return t.slice(11, 16); }
   function rugName(parts) { return parts.map(r => esc(r.name)).join(' + '); }
 
+  function healthBox(res) {
+    const vet = horse().vetNotes;
+    if (!vet && !res.healthNotes.length) return '';
+    return `<div class="health-box"><h4>Health</h4>
+      ${vet ? `<p class="vet"><strong>Vet’s advice:</strong> ${esc(vet)}</p>` : ''}
+      ${res.healthNotes.length ? `<ul>${res.healthNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}</div>`;
+  }
+
   function renderResult(p, res, hours, past) {
     const w = res.weather;
     const label = p.type === 'out' ? 'Turned out' : 'Stabled';
@@ -363,6 +393,7 @@
       ${pick}
       ${notes.length ? `<ul class="notes">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
       ${alts}
+      ${healthBox(res)}
       <details><summary>Why this recommendation?</summary>
         <table><tbody>${factorRows}<tr><th>Felt temperature</th><th class="num">${res.feltTemp}°C</th></tr>
         <tr><th>Ideal fill</th><th class="num">${res.targetGrams}g</th></tr></tbody></table>
@@ -388,6 +419,7 @@
       ${rows('Clip', E.CLIPS)}${rows('Breed type', E.BREEDS)}${rows('Body condition', E.CONDITION)}
       <tr><th colspan="2">Age</th></tr><tr><td>Under 3</td><td class="num neg">-1°</td></tr>
       <tr><td>20–24</td><td class="num neg">-2°</td></tr><tr><td>25+</td><td class="num neg">-3°</td></tr>
+      ${rows('Health', E.HEALTH)}
       <tr><th colspan="2">Turned out</th></tr>
       <tr><td>Wind: 1° per 5 mph (max 5°), scaled by shelter (exposed 100%, natural 60%, field shelter 35%)</td><td class="num neg">up to -5°</td></tr>
       <tr><td>Rain: scaled by shelter (donkeys penalised more)</td><td class="num neg">up to -4°</td></tr>

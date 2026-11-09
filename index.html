@@ -65,6 +65,18 @@
           <label>Personal tendency <select name="temperament"></select></label>
         </div>
 
+        <h2>Health</h2>
+        <p class="muted small">Tick anything that applies. Each one adjusts the recommendation and adds a reminder to the results.</p>
+        <div id="healthList" class="checks"></div>
+        <label class="check strong">
+          <input type="checkbox" name="precise">
+          <span>Keep closely matched: avoid both too hot and too cold
+            <small class="muted">Picks the rug nearest the ideal in either direction and warns sooner when the day warms up. Turned on automatically by some conditions above.</small></span>
+        </label>
+        <label class="block">Vet’s rugging advice <span class="muted small">(shown on every recommendation)</span>
+          <textarea name="vetNotes" rows="3" maxlength="500" placeholder="e.g. Keep him warm but don’t let him sweat. Check twice a day."></textarea>
+        </label>
+
         <h2>Where they live</h2>
         <div class="loc-row">
           <input id="locSearch" placeholder="Nearest town or village (e.g. Great Malvern)">
@@ -148,6 +160,7 @@
           <li><strong>Natural winter weight loss is healthy</strong> for good-doers. Over-rugging and over-feeding override it and contribute to obesity and laminitis risk.</li>
           <li><strong>Signs of over-rugging:</strong> sweating or damp coat under the rug, restlessness, rubbing, skin problems. Horses start sweating around 25°C, the top of their comfort zone.</li>
           <li><strong>Veterans, poor-doers, thin-skinned breeds</strong> (Thoroughbreds, Arabs) and horses that are unwell feel the cold more. Donkeys’ coats are not waterproof.</li>
+          <li><strong>Health conditions change things.</strong> Horses recovering from illness, eating less forage, or with arthritis may need more warmth; PPID, anhidrosis and laminitis-prone horses are more at risk from over-rugging. Your vet’s advice for your horse always comes first.</li>
           <li><strong>Check, don’t guess:</strong> feel behind the withers under the rug; remove rugs daily to check skin, condition and fit.</li>
         </ul>
 

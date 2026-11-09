@@ -53,6 +53,62 @@
     warm:   { label: 'Runs warm / sweats easily',     offset: 2 },
   };
 
+  // Health conditions. offset = °C shift in felt temperature (negative = needs more warmth).
+  // precise = keep the rug closely matched (avoid both too hot and too cold).
+  // vulnerable = lean warmer when unsure. onlyIn = only applies while stabled.
+  const HEALTH = {
+    recovering: {
+      label: 'Recovering from serious illness or surgery (e.g. peritonitis, colic surgery)',
+      offset: -2, vulnerable: true, precise: true,
+      note: 'Recovering horses have less in reserve to keep warm, but sweating under a rug also costs them fluid and energy. Check under the rug at least morning and evening, and follow any rugging advice from your vet.',
+    },
+    digestive: {
+      label: 'Digestive condition (e.g. delayed gastric emptying, colic history, ulcers)',
+      offset: -1, precise: true,
+      note: 'Digesting forage is a major source of body heat, so a horse eating less hay than usual will feel the cold more. Keep an eye on appetite. Drinking less in cold weather is linked to colic risk, so make sure water isn’t icy (horses tend to drink more when it’s lukewarm).',
+    },
+    dental: {
+      label: 'Dental problems / struggles to chew forage',
+      offset: -1,
+      note: 'Horses that can’t chew forage well get less warmth from digesting it. Watch their weight and appetite.',
+    },
+    arthritis: {
+      label: 'Arthritis / stiffness',
+      offset: -2, vulnerable: true,
+      note: 'Cold, damp weather can make stiff joints worse, so keep arthritic horses comfortably warm, especially overnight.',
+    },
+    boxrest: {
+      label: 'On box rest',
+      offset: -2, onlyIn: true,
+      note: 'On box rest a horse can’t move around to warm up, so it may need a little more rug than usual while stabled.',
+    },
+    ppid: {
+      label: 'PPID (Cushing’s)',
+      offset: 0, precise: true,
+      note: 'Horses with PPID often have a thick coat that doesn’t shed properly and can overheat under a rug. Check for sweating, especially on milder days.',
+    },
+    ems: {
+      label: 'EMS / laminitis-prone',
+      offset: 1,
+      note: 'For EMS or laminitis-prone horses, some natural winter weight loss helps, so avoid rugging more than needed.',
+    },
+    anhidrosis: {
+      label: 'Anhidrosis (doesn’t sweat properly)',
+      offset: 0, precise: true, overheat: true,
+      note: 'With anhidrosis a horse can’t cool itself by sweating, so over-rugging is a real overheating risk. Lack of sweat is not a sign the rug is right.',
+    },
+    skin: {
+      label: 'Rain scald / mud fever',
+      offset: 0, precise: true,
+      note: 'For rain scald or mud fever, keep the horse dry with a breathable waterproof rug, but avoid sweating underneath, because warm damp skin makes it worse.',
+    },
+    sweetitch: {
+      label: 'Sweet itch',
+      offset: 0, summer: true,
+      note: 'Sweet itch: in midge season, a sweet itch rug or fly rug matters more than warmth.',
+    },
+  };
+
   // How much of the wind / rain the horse actually feels when turned out
   const SHELTER = {
     exposed:  { label: 'Exposed – little or no shelter', wind: 1.0, rain: 1.0 },
@@ -140,6 +196,14 @@
     add(`Body condition: ${cond.label}`, cond.offset);
     add(temper.label, temper.offset);
 
+    const health = (horse.health || []).map(k => HEALTH[k]).filter(Boolean);
+    const month = p.month;
+    const summer = month >= 4 && month <= 9;
+    for (const h of health) {
+      if (h.onlyIn && out) continue;
+      add(h.label, h.offset);
+    }
+
     if (out) {
       const windPenalty = -Math.min(w.wind / 5, 5) * shelter.wind;
       add(`Wind ${Math.round(w.wind)} mph (${shelter.label.split(' –')[0].toLowerCase()})`, windPenalty);
@@ -152,7 +216,8 @@
     }
 
     const target = gramsFor(felt);
-    const vulnerable = !!(cond.vulnerable || age.vulnerable);
+    const vulnerable = !!(cond.vulnerable || age.vulnerable || health.some(h => h.vulnerable));
+    const precise = !!(horse.precise || health.some(h => h.precise));
     const clipped = clip.offset <= -5;
 
     // Waterproofing need
@@ -170,8 +235,8 @@
     // Swing between coldest and warmest part of the period
     const feltAtMax = felt + (w.max - base);
     const targetAtMax = gramsFor(feltAtMax);
-    if (target - targetAtMax >= 150) {
-      notes.push(`Temperatures climb to ${round1(w.max)}°C during this period – a rug suited to the coldest hours (${target}g) could be too warm at the peak (~${targetAtMax}g). Consider changing rugs mid-period or going lighter.`);
+    if (target - targetAtMax >= (precise ? 100 : 150)) {
+      notes.push(`Temperatures climb to ${round1(w.max)}°C during this period – a rug suited to the coldest hours (${target}g) could be too warm at the peak (~${targetAtMax}g). ${precise ? 'As this horse needs to be kept closely matched, plan to change to a lighter rug when it warms up.' : 'Consider changing rugs mid-period or going lighter.'}`);
     }
 
     // Neck cover
@@ -180,8 +245,7 @@
     if (felt < -8) neckAdvised = true;
 
     // Fly rug in warm months
-    const month = p.month;
-    if (out && w.max >= 15 && month >= 4 && month <= 9) {
+    if (out && w.max >= 15 && summer) {
       const fly = inventory.find(r => r.type === 'fly');
       notes.push(fly ? `Warm enough for flies – consider the fly rug (${fly.name}).` : 'Warm enough for flies – a fly rug/mask may help in summer.');
     }
@@ -189,15 +253,28 @@
     if (horse.condition === 'overweight' || horse.condition === 'obese') {
       notes.push('Overweight horses benefit from losing some weight over winter – BHS and welfare charities advise against over-rugging so they burn some energy keeping warm.');
     }
-    if (vulnerable) {
+    if (cond.vulnerable || age.vulnerable) {
       notes.push('Older horses or those in poor condition can struggle to stay warm – check them more often and err on the warmer side.');
+    }
+
+    // Health notes (shown on every result so they're not missed)
+    const healthNotes = [];
+    for (const h of health) {
+      if (h.onlyIn && out) continue;
+      if (h.summer && !summer) continue;
+      if (h.overheat && w.max < 12 && target > 0) continue; // overheating note only matters on milder days
+      healthNotes.push(h.note);
+    }
+    if (precise) {
+      healthNotes.push('This horse is set to be kept closely matched, so the pick avoids both over- and under-rugging. Check under the rug behind the withers: sweating or damp means too warm, shivering or a cold body means too cool.');
     }
 
     const combos = buildCombos(inventory, { out, needsWaterproof });
     const scored = combos.map(c => {
       const diff = c.grams - effectiveTarget;
-      const overW = vulnerable ? 1.0 : 1.4;
-      const underW = vulnerable ? 1.4 : 1.0;
+      // precise: symmetric; vulnerable: lean warmer; otherwise lean lighter (over-rugging is more common)
+      const overW = precise ? 1.3 : vulnerable ? 1.0 : 1.4;
+      const underW = precise ? 1.3 : vulnerable ? 1.4 : 1.0;
       let cost = diff > 0 ? diff * overW : -diff * underW;
       if (c.parts.length > 1) cost += 10; // slight preference for one rug
       if (!out && c.parts[0] && c.parts[0].type === 'turnout') cost += 45; // prefer stable rugs indoors
@@ -211,7 +288,7 @@
     let status = 'ok';
     if (!best) {
       status = 'missing';
-    } else if (Math.abs(best.diff) > 100) {
+    } else if (Math.abs(best.diff) > (precise ? 50 : 100)) {
       status = 'approx';
       notes.unshift(`Nothing in your inventory is close to the ideal ~${effectiveTarget}g – the closest option is ${best.grams}g${best.diff > 0 ? ' (warmer)' : ' (cooler)'}.`);
     }
@@ -220,8 +297,8 @@
       type, weather: w,
       feltTemp: round1(felt),
       targetGrams: effectiveTarget,
-      needsWaterproof, neckAdvised, vulnerable,
-      factors, notes, status,
+      needsWaterproof, neckAdvised, vulnerable, precise,
+      factors, notes, healthNotes, status,
       best,
       alternatives: scored.filter(c => c !== best).slice(0, 2),
       describeTarget: describeGrams(effectiveTarget, out, needsWaterproof),
@@ -256,7 +333,7 @@
     return `Heavyweight ${kind} rug + liner (~${g}g)`;
   }
 
-  const api = { recommend, summariseWeather, gramsFor, CLIPS, BREEDS, CONDITION, TEMPERAMENT, SHELTER, RUG_TYPES };
+  const api = { recommend, summariseWeather, gramsFor, CLIPS, BREEDS, CONDITION, TEMPERAMENT, HEALTH, SHELTER, RUG_TYPES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RugEngine = api;
 })(this);
