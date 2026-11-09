@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rug Checker</title>
+  <meta name="description" content="Decide which rug your horse needs today, based on the forecast, your horse and the rugs you own.">
+  <meta name="theme-color" content="#2f6b4f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Rug Checker">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🐴</span>
+      <h1>Rug Checker</h1>
+    </div>
+    <div class="horse-picker">
+      <label for="horseSelect" class="sr-only">Horse</label>
+      <select id="horseSelect"></select>
+      <button id="addHorse" class="ghost" title="Add another horse">+ Horse</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="today" class="active">Today</button>
+    <button role="tab" data-tab="horse">Horse &amp; routine</button>
+    <button role="tab" data-tab="rugs">Rugs</button>
+    <button role="tab" data-tab="guide">Guidance</button>
+  </nav>
+
+  <main>
+    <!-- TODAY -->
+    <section id="tab-today" class="tab active">
+      <div class="toolbar">
+        <div class="seg" id="daySeg">
+          <button data-day="0" class="active">Today</button>
+          <button data-day="1">Tomorrow</button>
+        </div>
+        <button id="refresh" class="ghost">↻ Refresh forecast</button>
+      </div>
+      <p id="locLine" class="muted"></p>
+      <div id="results"></div>
+      <aside class="callout">
+        <strong>Always check your horse.</strong> Slide a flat hand under the rug behind the withers:
+        warm and dry is right; damp or hot means too much; cold means too little. Cold ears alone
+        aren’t a reliable sign. Take rugs off daily to check skin, condition and fit.
+      </aside>
+    </section>
+
+    <!-- HORSE -->
+    <section id="tab-horse" class="tab">
+      <form id="horseForm" class="card form" autocomplete="off">
+        <h2>About your horse</h2>
+        <div class="grid">
+          <label>Name <input name="name" required maxlength="40"></label>
+          <label>Age (years) <input name="age" type="number" min="0" max="45"></label>
+          <label>Breed type <select name="breed"></select></label>
+          <label>Clip <select name="clip"></select></label>
+          <label>Body condition <select name="condition"></select></label>
+          <label>Personal tendency <select name="temperament"></select></label>
+        </div>
+
+        <h2>Where they live</h2>
+        <div class="loc-row">
+          <input id="locSearch" placeholder="Nearest town or village (e.g. Great Malvern)">
+          <button type="button" id="locFind">Search</button>
+          <button type="button" id="locGeo" class="ghost">📍 Use my location</button>
+        </div>
+        <ul id="locResults" class="loc-results"></ul>
+        <p id="locCurrent" class="muted"></p>
+
+        <label class="block">Field
+          <select name="shelter"></select>
+        </label>
+
+        <h2>Daily routine</h2>
+        <p class="muted small">When is your horse turned out and when are they stabled? Periods can run overnight (e.g. in 16:00 → 08:00).</p>
+        <div class="presets">
+          <button type="button" data-preset="outDay">Out day, in night</button>
+          <button type="button" data-preset="inDay">In day, out night</button>
+          <button type="button" data-preset="out247">Out 24/7</button>
+          <button type="button" data-preset="in247">In 24/7</button>
+        </div>
+        <div id="periods"></div>
+        <button type="button" id="addPeriod" class="ghost">+ Add period</button>
+
+        <div class="actions">
+          <button type="submit" class="primary">Save horse</button>
+          <button type="button" id="deleteHorse" class="danger ghost">Delete horse</button>
+        </div>
+        <p id="horseSaved" class="saved" hidden>Saved ✓</p>
+      </form>
+    </section>
+
+    <!-- RUGS -->
+    <section id="tab-rugs" class="tab">
+      <div class="card">
+        <h2>Rug inventory</h2>
+        <p class="muted small">Add every rug and liner this horse can wear. Fill weight is on the label (e.g. 0g, 100g, 200g, 300g).</p>
+        <div id="rugList"></div>
+      </div>
+      <form id="rugForm" class="card form" autocomplete="off">
+        <h2 id="rugFormTitle">Add a rug</h2>
+        <input type="hidden" name="id">
+        <div class="grid">
+          <label>Name <input name="name" required maxlength="50" placeholder="e.g. Blue Weatherbeeta"></label>
+          <label>Type <select name="type"></select></label>
+          <label>Fill (g) <input name="fill" type="number" min="0" max="600" step="25" value="0"></label>
+          <label>Neck
+            <select name="neck">
+              <option value="none">No neck</option>
+              <option value="combo">Fixed neck (combo)</option>
+              <option value="detachable">Detachable neck</option>
+            </select>
+          </label>
+        </div>
+        <label class="block">Notes <input name="notes" maxlength="100" placeholder="Size, condition, needs re-proofing…"></label>
+        <div class="actions">
+          <button type="submit" class="primary">Save rug</button>
+          <button type="button" id="rugCancel" class="ghost" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- GUIDE -->
+    <section id="tab-guide" class="tab">
+      <article class="card prose">
+        <h2>How recommendations are made</h2>
+        <p>Rug Checker turns the forecast into a <em>“felt” temperature</em> for your horse, then suggests the fill weight that would keep them comfortable, and finally picks the closest match from your rugs.</p>
+        <ol>
+          <li><strong>Forecast for each period</strong> (turnout or stabled), weighted toward the coldest hours – you rug for the overnight low, not the afternoon high.</li>
+          <li><strong>Adjustments</strong> for clip, breed type, age, body condition, and (when turned out) wind, rain and how sheltered the field is.</li>
+          <li><strong>Comfort floor of ~5°C.</strong> Healthy adult horses are widely quoted as comfortable between about 5°C and 25°C (their thermoneutral zone), and well-adapted, unclipped horses cope with much lower. Below a felt 5°C, roughly 25g of fill is suggested per degree.</li>
+          <li><strong>Lean lighter.</strong> Over-rugging is a common welfare problem, so the app favours slightly lighter options – unless your horse is elderly or in poor condition, when it leans warmer.</li>
+        </ol>
+        <div id="factorTable"></div>
+
+        <h2>Key guidance behind the app</h2>
+        <ul>
+          <li><strong>Not every horse needs a rug.</strong> A healthy horse with a full winter coat, forage and shelter copes with cold well. Their coat fluffs up to trap warm air; a rug flattens it.</li>
+          <li><strong>Clipping removes protection,</strong> so clipped horses need rugs to replace the coat taken away – more coat removed means more rug needed.</li>
+          <li><strong>Wind and rain are what really chill a horse,</strong> especially in an exposed field. Shelter (hedges, trees, field shelter) makes a big difference.</li>
+          <li><strong>Natural winter weight loss is healthy</strong> for good-doers. Over-rugging and over-feeding override it and contribute to obesity and laminitis risk.</li>
+          <li><strong>Signs of over-rugging:</strong> sweating or damp coat under the rug, restlessness, rubbing, skin problems. Horses start sweating around 25°C, the top of their comfort zone.</li>
+          <li><strong>Veterans, poor-doers, thin-skinned breeds</strong> (Thoroughbreds, Arabs) and horses that are unwell feel the cold more. Donkeys’ coats are not waterproof.</li>
+          <li><strong>Check, don’t guess:</strong> feel behind the withers under the rug; remove rugs daily to check skin, condition and fit.</li>
+        </ul>
+
+        <h2>Sources</h2>
+        <ul class="sources">
+          <li><a href="https://www.bhs.org.uk/horse-care-and-welfare/health-care-management/seasonal-care/rugging/" target="_blank" rel="noopener">The British Horse Society – Rugging</a></li>
+          <li><a href="https://pcuk.org/" target="_blank" rel="noopener">The Pony Club – horse care &amp; “Why is over-rugging bad for wellbeing?”</a></li>
+          <li><a href="https://pure.hartpury.ac.uk/en/publications/are-we-over-rugging-a-preliminary-research-article-into-how-ruggi/" target="_blank" rel="noopener">Hartpury University – “Are we over-rugging?” (preliminary study)</a></li>
+          <li><a href="https://www.dressagensw.equestrian.org.au/sites/default/files/2023%20DNSW%20Clubs%20Forum_%20A%20survey%20on%20the%20use%20of%20rugs%20in%20Australian%20horses_Aust%20Vet%20Jnl.pdf" target="_blank" rel="noopener">Australian Veterinary Journal (2023) – survey on rug use in 2,659 horses</a></li>
+          <li><a href="https://www.horseandhound.co.uk/plus/rugging-horses-514496" target="_blank" rel="noopener">Horse &amp; Hound – vet explains when horses feel the cold</a></li>
+          <li><a href="https://www.horseandhound.co.uk/features/which-rug-should-i-put-on-my-horse-your-ultimate-guide-to-which-rug-if-any-you-should-put-on-your-horse-769183" target="_blank" rel="noopener">Horse &amp; Hound – which rug should I put on my horse?</a></li>
+          <li><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather data: Open-Meteo</a></li>
+        </ul>
+        <p class="muted small">The exact numbers (offsets, 25g per °C) are this app’s model, calibrated against published UK rugging charts – they’re a starting point, not an official BHS or Pony Club formula. If your horse is unwell, recovering, or has a condition such as PPID, ask your vet.</p>
+
+        <h2>Your data</h2>
+        <p class="small">Everything is stored only in this browser. Back it up or move it to another device:</p>
+        <div class="actions">
+          <button type="button" id="exportData" class="ghost">⬇ Export backup</button>
+          <label class="ghost button-like">⬆ Import backup <input type="file" id="importData" accept="application/json" hidden></label>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
